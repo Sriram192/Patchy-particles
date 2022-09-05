@@ -1,0 +1,9 @@
+tolerance 3.0
+seed 90767356
+output packed.xyz
+filetype xyz
+
+structure new_monomer.xyz
+  number 1000
+  inside box -23.207 -23.207 -23.207 23.207 23.207 23.207
+end structure
