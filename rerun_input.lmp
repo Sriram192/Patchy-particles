@@ -1,0 +1,54 @@
+#########################################################
+#							#
+#							#
+#		Script by K. Sriram			#
+#		written on 11/02/2022			#
+#           fibril from bonded patchy beads             #
+#		Langevin Dynamics			#
+#########################################################
+variable	patch_size	equal	0.07
+variable	A_cut		equal	2.5*${patch_size}
+variable	epsilon		equal	40
+variable	AB_sig		equal	(1.0+${patch_size})/2
+variable	AB_cut		equal	1.12*${AB_sig}
+variable	out			equal	1
+################### Initialization ######################
+
+units			lj
+dimension		3
+boundary		p p p
+atom_style		angle
+read_data		data.packed
+mass			1 1.0
+mass			2 1.0
+group			particle type 2
+group			patch type 1
+
+################## Force Parameters ####################
+pair_style		lj/cut 2.5
+
+pair_coeff              1 1 ${epsilon} ${patch_size} ${A_cut}   #AA
+pair_coeff              1 2 1.0 ${AB_sig} ${AB_cut}   #AB
+pair_modify             shift yes
+pair_coeff              2 2 2.0 1.0 1.12   #BB
+pair_modify             shift yes
+
+
+bond_style		harmonic	
+bond_coeff		1 15770.0 0.47
+special_bonds           lj 0.0 0.0 0.0
+
+angle_style		harmonic
+angle_coeff		* 15770.0 180.0
+
+######################### RUN ###########################
+
+compute 		1 patch cluster/atom 0.15
+compute			2 patch coord/atom cutoff 0.15 1 
+dump			1 patch custom ${out} patch_coord_cluster.dat id c_1[*] c_2[*] 
+dump_modify		1 sort id
+
+rerun full.xyz dump x y z box no format xyz 
+
+
+

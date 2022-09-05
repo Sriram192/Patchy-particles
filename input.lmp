@@ -1,0 +1,122 @@
+#########################################################
+#							#
+#							#
+#		Script by K. Sriram			#
+#		written on 11/02/2022			#
+#           fibril from bonded patchy beads             #
+#		Langevin Dynamics			#
+#########################################################
+variable	patch_size	equal	0.07
+variable	A_cut		equal	2.5*${patch_size}
+variable	eq_step		equal	1.0e9
+variable	pro_step	equal	5.0e8
+variable	dt		equal	0.001
+variable	eq_thermo_step	equal	10000
+variable	pro_thermo_step	equal	1000
+variable	epsilon		equal	30
+variable	AB_sig		equal	(1.0+${patch_size})/2
+variable	AB_cut		equal	1.12*${AB_sig}
+variable 	S 		equal 	step
+variable 	T 		equal 	temp
+variable 	P 		equal 	press
+variable 	V 		equal 	vol
+variable 	rho 		equal 	density
+variable 	Ke 		equal 	ke
+variable 	Pe 		equal 	pe
+variable 	E 		equal 	etotal
+variable 	EP 		equal 	epair
+variable	eq_dump		equal	1e6
+variable	pro_dump	equal	1e5
+variable	Nevery		equal	1e2
+variable	Nrepeat		equal	1e4
+variable	Nfreq		equal	1e6
+################### Initialization ######################
+
+units			lj
+dimension		3
+boundary		p p p
+atom_style		angle
+read_data		data.packed
+mass			1 1.0
+mass			2 1.0
+group			particle type 2
+group			patch type 1
+
+################## Force Parameters ####################
+pair_style		lj/cut 2.5
+
+pair_coeff              1 1 ${epsilon} ${patch_size} ${A_cut}   #AA
+pair_coeff              1 2 1.0 ${AB_sig} ${AB_cut}   #AB
+pair_modify             shift yes
+pair_coeff              2 2 2.0 1.0 1.12   #BB
+pair_modify             shift yes
+
+
+bond_style		harmonic	
+bond_coeff		1 15770.0 0.47
+special_bonds           lj 0.0 0.0 0.0
+
+angle_style		harmonic
+angle_coeff		* 15770.0 180.0
+
+######################### RUN ###########################
+
+min_style		sd
+minimize		1.0e-6 1.0e-8 1000 10000
+velocity		all create 1.0 89562387 dist gaussian
+
+
+neighbor		2.5 multi
+comm_modify		cutoff 1.3
+
+fix			1 all langevin 1.0 1.0 0.007 6789342 
+fix			2 all nve
+thermo_style            custom step temp press pe ke etotal density
+thermo                  ${eq_thermo_step}
+
+compute 		1 particle cluster/atom 1.05
+compute			2 particle coord/atom cutoff 1.05 2 2
+compute			3 particle chunk/atom c_1
+compute			g_chunk particle gyration/chunk 3
+fix			4 particle ave/time ${Nevery} ${Nrepeat} ${Nfreq} c_g_chunk file Rg.dat mode vector
+dump			1 particle custom ${pro_dump} cluster.dat id c_1[*] 
+dump_modify		1 sort id
+dump			2 particle custom ${pro_dump} coord.dat id c_2[*]
+dump_modify		2 sort id
+
+######################### Equilibration ##################
+
+timestep		${dt}
+fix			3 all print ${eq_thermo_step} "$S $T $P ${Pe} ${Ke} $E ${EP}" file eq_thermo.dat
+
+dump			3 all xyz ${eq_dump} eq_1.xyz
+dump			4 all atom ${eq_dump} dump_atom.eq1
+run                     ${eq_step}
+undump                  3
+undump			4
+write_restart           equilibrium1.restart
+
+dump			5 all xyz ${eq_dump} eq_2.xyz
+dump			6 all atom ${eq_dump} dump_atom.eq2
+run                     ${eq_step}
+undump                  5
+undump			6
+write_restart           equilibrium2.restart
+
+####################### Production #################################
+fix			7 all print ${pro_thermo_step} "$S $T $P ${Pe} ${Ke} $E ${EP}" file prod_thermo.dat
+
+dump			7 all xyz ${pro_dump} prod.xyz
+dump			8 all atom ${pro_dump} dump_atom.prod
+run                     ${pro_step}
+undump                  7
+undump			8
+write_restart           production.restart
+
+print			"******* Ultimate Coarse Grained Simualtion for chain-like aggregates ********"
+print			"*****************************************************************************"
+print			"It is only when they go wrong that machines remind you how powerful they are."
+print			"*****************************************************************************"
+print			"***********************Succesfully Ran the Simulation************************"
+
+################### End Of File	##########################
