@@ -48,6 +48,12 @@ compute			2 patch coord/atom cutoff 0.15 1
 dump			1 patch custom ${out} patch_coord_cluster.dat id c_1[*] c_2[*] 
 dump_modify		1 sort id
 
+
+compute 		3 patch property/local patom1 patom2
+compute			4 patch pair/local dist eng
+dump 			2 patch local ${out} patch_dist_ener.dat c_3[*] c_4[*]
+dump_modify		2 sort 1
+
 rerun full.xyz dump x y z box no format xyz 
 
 
